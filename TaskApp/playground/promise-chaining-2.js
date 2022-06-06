@@ -1,5 +1,5 @@
-require("../src/db/mongoose");
-const Task = require("../src/models/task");
+require("../src/config/db");
+const { Task } = require("../src/models");
 
 const _id = "6104fd15790a31068d1db637";
 

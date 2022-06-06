@@ -1,7 +1,7 @@
-const mongoose = require("mongoose");
+const { Schema, model } = require("mongoose");
 const validator = require("validator");
 
-const User = new mongoose.model("User", {
+const userSchema = Schema({
   name: {
     type: String,
     required: true,
@@ -40,4 +40,4 @@ const User = new mongoose.model("User", {
   },
 });
 
-module.exports = User;
+module.exports = model("User", userSchema);
