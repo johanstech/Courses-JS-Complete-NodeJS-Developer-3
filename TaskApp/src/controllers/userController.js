@@ -4,32 +4,30 @@ const { User } = require("../models");
 // @route GET /api/users/
 // @access Public
 const getUsers = async (req, res) => {
-  User.find()
-    .select("-password")
-    .then((users) => {
-      res.send(users);
-    })
-    .catch((e) => {
-      res.status(500).send();
-    });
+  try {
+    const users = await User.find().select("-password");
+    if (!users) {
+      return res.status(500).send();
+    }
+    res.send(users);
+  } catch (e) {
+    res.status(500).send();
+  }
 };
 
 // @desc Get user
 // @route GET /api/users/:id
 // @access Public
 const getUser = async (req, res) => {
-  const _id = req.params.id;
-  User.findById(_id)
-    .select("-password")
-    .then((user) => {
-      if (!user) {
-        return res.status(404).send();
-      }
-      res.send(user);
-    })
-    .catch((e) => {
-      res.status(500).send();
-    });
+  try {
+    const user = await User.findById(req.params.id).select("-password");
+    if (!user) {
+      return res.status(404).send();
+    }
+    res.send(user);
+  } catch (e) {
+    res.status(500).send();
+  }
 };
 
 // @desc Create new user
@@ -48,25 +46,76 @@ const createUser = async (req, res) => {
     throw new Error("User already exists.");
   }
 
-  const user = await User.create({
-    name,
-    age,
-    email,
-    password,
-  });
-
-  if (user) {
+  try {
+    const user = await User.create({
+      name,
+      age,
+      email,
+      password,
+    });
+    if (!user) {
+      res.status(400);
+      throw new Error("Invalid user data.");
+    }
     res.status(201).json({
       _id: user.id,
       name: user.name,
       email: user.email,
     });
-  } else {
-    res.status(400);
-    throw new Error("Invalid user data.");
+  } catch (e) {
+    res.status(500).send();
   }
 };
 
-const UserController = { getUsers, getUser, createUser };
+// @desc Update user
+// @route PATCH /api/users/:id
+// @access Public
+const updateUser = async (req, res) => {
+  const allowedUpdates = ["name", "email", "password", "age"];
+  const updates = Object.keys(req.body);
+  const isValidOperation = updates.every((update) =>
+    allowedUpdates.includes(update)
+  );
+
+  if (!isValidOperation) {
+    return res.status(400).send({ error: "Invalid field(s)!" });
+  }
+
+  try {
+    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+    if (!user) {
+      return res.status(404).send();
+    }
+    res.send(user);
+  } catch (e) {
+    res.status(400).send();
+  }
+};
+
+// @desc Delete user
+// @route DELETE /api/users/:id
+// @access Public
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      return res.status(404).send();
+    }
+    res.send(user);
+  } catch (e) {
+    res.status(500).send();
+  }
+};
+
+const UserController = {
+  getUsers,
+  getUser,
+  createUser,
+  updateUser,
+  deleteUser,
+};
 
 module.exports = UserController;
