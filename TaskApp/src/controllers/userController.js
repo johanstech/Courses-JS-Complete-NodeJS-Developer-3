@@ -1,35 +1,5 @@
 const { User } = require("../models");
 
-// @desc Get all users
-// @route GET /api/users/
-// @access Public
-const getUsers = async (req, res) => {
-  try {
-    const users = await User.find().select("-password");
-    if (!users) {
-      return res.status(500).send();
-    }
-    res.send(users);
-  } catch (e) {
-    res.status(500).send();
-  }
-};
-
-// @desc Get user
-// @route GET /api/users/:id
-// @access Public
-const getUser = async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).select("-password");
-    if (!user) {
-      return res.status(404).send();
-    }
-    res.send(user);
-  } catch (e) {
-    res.status(500).send();
-  }
-};
-
 // @desc Create new user
 // @route POST /api/users
 // @access Public
@@ -57,19 +27,72 @@ const createUser = async (req, res) => {
       res.status(400);
       throw new Error("Invalid user data.");
     }
-    res.status(201).json({
-      _id: user.id,
-      name: user.name,
-      email: user.email,
-    });
+    const token = user.generateAuthToken();
+    res.status(201).send({ user, token });
   } catch (e) {
     res.status(500).send();
   }
 };
 
-// @desc Update user
-// @route PATCH /api/users/:id
+// @desc Login user
+// @route POST /api/users/login
 // @access Public
+const loginUser = async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    res.status(400);
+    throw new Error("Provide email and password!");
+  }
+
+  try {
+    const user = await User.findByCredentials(email, password);
+    const token = await user.generateAuthToken();
+    res.send({ user, token });
+  } catch (e) {
+    res.status(400).send({ error: e });
+  }
+};
+
+// @desc Logout user
+// @route POST /api/users/logout
+// @access Private
+const logoutUser = async (req, res) => {
+  try {
+    req.user.tokens = req.user.tokens.filter(
+      (token) => token.token !== req.token
+    );
+    await req.user.save();
+
+    res.send();
+  } catch (e) {
+    res.status(500).send();
+  }
+};
+
+// @desc Logout user from all sessions
+// @route POST /api/users/logoutall
+// @access Private
+const logoutUserAllSessions = async (req, res) => {
+  try {
+    req.user.tokens = [];
+    await req.user.save();
+
+    res.send();
+  } catch (e) {
+    res.status(500).send();
+  }
+};
+
+// @desc Get user
+// @route GET /api/users/me
+// @access Private
+const getUser = async (req, res) => {
+  res.send(req.user);
+};
+
+// @desc Update user
+// @route PATCH /api/users/me
+// @access Private
 const updateUser = async (req, res) => {
   const allowedUpdates = ["name", "email", "password", "age"];
   const updates = Object.keys(req.body);
@@ -82,38 +105,33 @@ const updateUser = async (req, res) => {
   }
 
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!user) {
-      return res.status(404).send();
-    }
-    res.send(user);
+    updates.forEach((update) => (req.user[update] = req.body[update]));
+    await req.user.save();
+    res.send(req.user);
   } catch (e) {
     res.status(400).send();
   }
 };
 
 // @desc Delete user
-// @route DELETE /api/users/:id
-// @access Public
+// @route DELETE /api/users/me
+// @access Private
 const deleteUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
-    if (!user) {
-      return res.status(404).send();
-    }
-    res.send(user);
+    await req.user.remove();
+    res.send(req.user);
   } catch (e) {
+    console.log(e);
     res.status(500).send();
   }
 };
 
 const UserController = {
-  getUsers,
-  getUser,
   createUser,
+  loginUser,
+  logoutUser,
+  logoutUserAllSessions,
+  getUser,
   updateUser,
   deleteUser,
 };
